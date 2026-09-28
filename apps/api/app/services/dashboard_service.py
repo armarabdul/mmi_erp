@@ -225,10 +225,10 @@ class DashboardService:
         ]
 
         # 5. Recent analytics activity from audit log
-        audit_query = db.query(AuditLog).order_by(desc(AuditLog.timestamp)).limit(6)
+        audit_query = db.query(AuditLog)
         if branch_id:
             audit_query = audit_query.filter((AuditLog.branch_id == branch_id) | (AuditLog.branch_id.is_(None)))
-        audit_results = audit_query.all()
+        audit_results = audit_query.order_by(desc(AuditLog.timestamp)).limit(6).all()
 
         recent_activity = [
             RecentActivityItem(

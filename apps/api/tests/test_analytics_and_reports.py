@@ -105,6 +105,19 @@ def test_dashboard_analytics_api():
     assert len(data["sales_by_branch"]) > 0
     assert len(data["top_products"]) <= 10
 
+def test_manager_dashboard_analytics_api():
+    token = get_token("manager@mmi-demo.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    res = client.get("/api/v1/dashboard", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["is_branch_restricted"] is True
+    assert data["restricted_branch_name"] == "Muscat"
+    assert len(data["kpis"]) == 6
+    assert len(data["sales_by_branch"]) == 1
+    assert data["sales_by_branch"][0]["branch_name"] == "Muscat"
+
+
 def test_monthly_trend_scenario_4():
     token = get_token("admin@mmi-demo.com")
     headers = {"Authorization": f"Bearer {token}"}
