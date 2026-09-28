@@ -544,6 +544,17 @@ def seed_database(num_sales: int = 50000):
             session.add(AuditLog(**a))
         session.commit()
 
+        # Synchronize sequences on PostgreSQL
+        if engine.dialect.name == "postgresql":
+            from sqlalchemy import text
+            print("Synchronizing PostgreSQL sequences...")
+            for table_name in ["branches", "users", "categories", "products", "customers", "suppliers", "purchases", "sales", "sale_items", "inventory", "audit_logs"]:
+                try:
+                    session.execute(text(f"SELECT setval(pg_get_serial_sequence('{table_name}', 'id'), coalesce(max(id), 1)) FROM {table_name};"))
+                    session.commit()
+                except Exception:
+                    session.rollback()
+
         print("\n=== SUCCESS: Database seeded successfully! ===")
         print(f"Branches: {len(branch_objs)}")
         print(f"Products: {len(product_objs)}")

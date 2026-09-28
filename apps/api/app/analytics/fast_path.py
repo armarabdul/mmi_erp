@@ -185,7 +185,9 @@ LIMIT {limit}"""
             ("المبيعات الشهرية" in q or "اتجاه المبيعات" in q or "آخر 12 شهر" in q or "اخر 12 شهر" in q)
         )
         if is_monthly_trend:
-            sql = """SELECT strftime('%Y-%m', s.sale_date) AS period,
+            from app.core.database import engine
+            period_expr = "to_char(s.sale_date, 'YYYY-MM')" if engine.dialect.name == "postgresql" else "strftime('%Y-%m', s.sale_date)"
+            sql = f"""SELECT {period_expr} AS period,
        ROUND(SUM(s.net_amount), 2) AS total_sales,
        COUNT(s.id) AS order_count
 FROM sales s

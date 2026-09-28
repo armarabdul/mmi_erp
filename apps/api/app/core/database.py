@@ -4,10 +4,14 @@ from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from app.core.config import settings
 from app.core.logging import logger
 
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
 connect_args = {}
 pool_kwargs = {}
 
-if settings.DATABASE_URL.startswith("sqlite"):
+if db_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 else:
     pool_kwargs = {
@@ -17,7 +21,7 @@ else:
     }
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     echo=settings.DB_ECHO,
     connect_args=connect_args,
     **pool_kwargs
@@ -37,8 +41,9 @@ def get_readonly_db() -> Generator[Session, None, None]:
     """Provides a session designated for read-only analytical queries."""
     db = SessionLocal()
     try:
-        if settings.DATABASE_URL.startswith("postgresql"):
-            db.execute("SET TRANSACTION READ ONLY")
+        if db_url.startswith("postgresql"):
+            from sqlalchemy import text
+            db.execute(text("SET TRANSACTION READ ONLY"))
         yield db
     finally:
         db.rollback()
