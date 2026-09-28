@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mmi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mmi_user
+      POSTGRES_PASSWORD: mmi_password
+      POSTGRES_DB: mmi_analytics
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mmi_user -d mmi_analytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: mmi-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://mmi_user:mmi_password@db:5432/mmi_analytics
+      JWT_SECRET: mmi-super-secure-enterprise-jwt-secret-key-change-in-prod-2026
+      AI_PROVIDER: openai
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: apps/web
+      dockerfile: Dockerfile
+    container_name: mmi-web
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
