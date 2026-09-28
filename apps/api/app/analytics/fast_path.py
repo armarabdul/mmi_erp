@@ -61,7 +61,7 @@ class FastPathAnalyzer:
         )
         if is_highest_branch:
             sql = """SELECT b.name AS branch, 
-       ROUND(SUM(s.net_amount), 2) AS total_sales,
+       ROUND(CAST(SUM(s.net_amount) AS NUMERIC), 2) AS total_sales,
        COUNT(s.id) AS order_count
 FROM sales s
 JOIN branches b ON s.branch_id = b.id
@@ -90,7 +90,7 @@ LIMIT 1"""
         )
         if is_total_month_sales:
             sql = """SELECT 'September 2026' AS period,
-       ROUND(SUM(s.net_amount), 2) AS total_sales,
+       ROUND(CAST(SUM(s.net_amount) AS NUMERIC), 2) AS total_sales,
        COUNT(s.id) AS order_count
 FROM sales s
 WHERE s.status = 'Completed' AND s.sale_date >= '2026-09-01' AND s.sale_date <= '2026-09-30'"""
@@ -118,7 +118,7 @@ WHERE s.status = 'Completed' AND s.sale_date >= '2026-09-01' AND s.sale_date <= 
                 title_ar = "المبيعات حسب الفرع — سبتمبر 2026"
 
             sql = f"""SELECT b.name AS branch, 
-       ROUND(SUM(s.net_amount), 2) AS total_sales,
+       ROUND(CAST(SUM(s.net_amount) AS NUMERIC), 2) AS total_sales,
        COUNT(s.id) AS order_count
 FROM sales s
 JOIN branches b ON s.branch_id = b.id
@@ -155,7 +155,7 @@ ORDER BY total_sales DESC"""
             sql = f"""SELECT pr.name AS product,
        cat.name AS category,
        SUM(si.quantity) AS units_sold,
-       ROUND(SUM(si.total_amount), 2) AS total_sales
+       ROUND(CAST(SUM(si.total_amount) AS NUMERIC), 2) AS total_sales
 FROM sales s
 JOIN sale_items si ON s.id = si.sale_id
 JOIN products pr ON si.product_id = pr.id
@@ -188,7 +188,7 @@ LIMIT {limit}"""
             from app.core.database import engine
             period_expr = "to_char(s.sale_date, 'YYYY-MM')" if engine.dialect.name == "postgresql" else "strftime('%Y-%m', s.sale_date)"
             sql = f"""SELECT {period_expr} AS period,
-       ROUND(SUM(s.net_amount), 2) AS total_sales,
+       ROUND(CAST(SUM(s.net_amount) AS NUMERIC), 2) AS total_sales,
        COUNT(s.id) AS order_count
 FROM sales s
 WHERE s.status = 'Completed' AND s.sale_date >= '2025-10-01' AND s.sale_date <= '2026-09-30'
@@ -217,7 +217,7 @@ ORDER BY period ASC"""
         if is_outstanding:
             sql = """SELECT b.name AS branch,
        COUNT(s.id) AS order_count,
-       ROUND(SUM(s.net_amount), 2) AS total_sales
+       ROUND(CAST(SUM(s.net_amount) AS NUMERIC), 2) AS total_sales
 FROM sales s
 JOIN branches b ON s.branch_id = b.id
 WHERE s.status = 'Pending'
@@ -245,7 +245,7 @@ ORDER BY order_count DESC"""
         )
         if is_inventory_branch:
             sql = """SELECT b.name AS branch,
-       ROUND(SUM(i.quantity * pr.cost), 2) AS inventory_value,
+       ROUND(CAST(SUM(i.quantity * pr.cost) AS NUMERIC), 2) AS inventory_value,
        SUM(i.quantity) AS total_units
 FROM inventory i
 JOIN branches b ON i.branch_id = b.id
@@ -274,7 +274,7 @@ ORDER BY inventory_value DESC"""
         )
         if is_cat_sales:
             sql = """SELECT cat.name AS category,
-       ROUND(SUM(si.total_amount), 2) AS total_sales,
+       ROUND(CAST(SUM(si.total_amount) AS NUMERIC), 2) AS total_sales,
        SUM(si.quantity) AS units_sold
 FROM sales s
 JOIN sale_items si ON s.id = si.sale_id

@@ -174,4 +174,26 @@ def test_root_health_liveness_endpoint():
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
 
+def test_unauthorized_analytics_query():
+    res = client.post(
+        "/api/v1/analytics/query",
+        json={"question": "Show me sales by branch this month", "language": "en"},
+    )
+    assert res.status_code == 401
+
+def test_invalid_token_analytics_query():
+    res = client.post(
+        "/api/v1/analytics/query",
+        json={"question": "Show me sales by branch this month", "language": "en"},
+        headers={"Authorization": "Bearer invalid.token.value"},
+    )
+    assert res.status_code == 401
+
+def test_fast_path_postgres_numeric_cast():
+    from app.analytics.fast_path import fast_path_analyzer
+    match = fast_path_analyzer.match("Show me sales by branch this month")
+    assert match is not None
+    assert "CAST(SUM(s.net_amount) AS NUMERIC)" in match.generated_sql
+
+
 

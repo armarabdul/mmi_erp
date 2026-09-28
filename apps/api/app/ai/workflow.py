@@ -2,6 +2,7 @@ import time
 import re
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timezone
+from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -92,8 +93,8 @@ class AnalyticsWorkflow:
                 row_dict = {}
                 for idx, col in enumerate(columns):
                     val = r[idx]
-                    if isinstance(val, float):
-                        val = round(val, 2)
+                    if isinstance(val, (float, Decimal)):
+                        val = round(float(val), 2)
                     row_dict[col] = val
                 rows_data.append(row_dict)
 
@@ -108,6 +109,7 @@ class AnalyticsWorkflow:
             explanation = self._generate_explanation(question, rows_data, language, user_branch_id)
 
         except SQLGuardError as sge:
+            db.rollback()
             success = False
             error_msg = str(sge)
             explanation = (
@@ -118,6 +120,7 @@ class AnalyticsWorkflow:
             chart_type = "table"
             chart_title = "Security Alert" if language == "en" else "تنبيه أمني"
         except Exception as ex:
+            db.rollback()
             success = False
             logger.error(f"Error executing analytics workflow: {ex}", exc_info=True)
             error_msg = "An error occurred while executing the analytics query."
@@ -150,9 +153,15 @@ class AnalyticsWorkflow:
             final_response=explanation,
             token_count=180 + len(question.split()) * 2,
         )
-        db.add(audit_entry)
-        db.commit()
-        db.refresh(audit_entry)
+        audit_id = 0
+        try:
+            db.add(audit_entry)
+            db.commit()
+            db.refresh(audit_entry)
+            audit_id = audit_entry.id
+        except Exception as audit_ex:
+            logger.error(f"Failed to persist audit log: {audit_ex}", exc_info=True)
+            db.rollback()
 
         # 6. Build Structured Result
         return AnalyticsQueryResponse(
@@ -172,7 +181,7 @@ class AnalyticsWorkflow:
             filters_applied=filters_applied,
             data_source="Demo ERP Analytics Database",
             technical_details=TechnicalDetails(
-                audit_id=audit_entry.id,
+                audit_id=audit_id,
                 execution_time_ms=duration_ms,
                 result_row_count=len(rows_data),
                 validated_sql=validated_sql,
@@ -195,6 +204,7 @@ CRITICAL RULES:
 4. Always filter completed sales using `status = 'Completed'`.
 5. Group by relevant dimensions and order by aggregate metric descending.
 6. Limit results to 20 rows unless specified.
+7. For rounding aggregate functions, cast to NUMERIC first: ROUND(CAST(SUM(...) AS NUMERIC), 2).
 
 {semantic_layer.get_semantic_context_prompt()}
 """
