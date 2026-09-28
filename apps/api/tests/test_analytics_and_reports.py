@@ -156,3 +156,9 @@ def test_audit_logs_endpoint():
     assert data["total_count"] > 0
     assert len(data["items"]) > 0
 
+def test_root_health_liveness_endpoint():
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+
+

@@ -72,11 +72,16 @@ app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 
+@app.get("/health", tags=["Liveness"])
+def liveness():
+    """Lightweight liveness probe for container orchestrators (returns 200 immediately without database queries)."""
+    return {"status": "ok"}
+
 @app.get("/")
 def root():
     return {
         "app": settings.APP_NAME,
         "status": "online",
         "docs": "/docs",
-        "health": "/api/health",
+        "health": "/health",
     }
