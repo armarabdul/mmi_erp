@@ -196,3 +196,56 @@ def get_migration_status(
         stat = run_res["status"]
     return stat
 
+@router.get("/ai-provider-status")
+def get_ai_provider_status(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Admin-only endpoint to verify live OpenAI configuration and real API connectivity.
+    Never exposes API keys or secrets.
+    """
+    if current_user.role != "Admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required.")
+    
+    from app.ai.openai_provider import OpenAIProvider
+    import httpx
+    provider = OpenAIProvider()
+    has_key = provider.has_api_key()
+    
+    test_result = "not_tested"
+    test_error = None
+    if has_key:
+        try:
+            headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"}
+            payload = {"model": settings.OPENAI_MODEL, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1}
+            with httpx.Client(timeout=10.0) as client:
+                res = client.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+                if res.status_code == 200:
+                    test_result = "success"
+                else:
+                    test_result = "failure"
+                    if res.status_code == 401:
+                        test_error = "invalid_key"
+                    elif res.status_code == 429:
+                        test_error = "insufficient_quota_or_billing"
+                    else:
+                        test_error = f"http_{res.status_code}"
+        except httpx.ConnectError:
+            test_result = "failure"
+            test_error = "network_failure"
+        except Exception as e:
+            test_result = "failure"
+            test_error = type(e).__name__
+    else:
+        test_result = "skipped"
+        test_error = "missing_key"
+        
+    return {
+        "ai_provider": settings.AI_PROVIDER,
+        "openai_model": settings.OPENAI_MODEL,
+        "openai_key_configured": has_key,
+        "real_api_call_status": test_result,
+        "error_category": test_error,
+    }
+
+

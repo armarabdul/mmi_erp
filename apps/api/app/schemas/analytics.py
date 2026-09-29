@@ -24,6 +24,8 @@ class TechnicalDetails(BaseModel):
     model_used: str
     ai_provider: str
     branch_restricted: bool
+    ai_call_status: Optional[str] = None
+    error_category: Optional[str] = None
 
 class AnalyticsQueryResponse(BaseModel):
     question: str

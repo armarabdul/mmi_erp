@@ -11,6 +11,7 @@ class OpenAIProvider(AIProvider):
         self.api_key = settings.OPENAI_API_KEY
         self.model = settings.OPENAI_MODEL
         self.base_url = "https://api.openai.com/v1"
+        self.last_call_metadata = {"status": "none", "error_category": None, "duration_ms": 0}
 
     def has_api_key(self) -> bool:
         return bool(self.api_key and len(self.api_key.strip()) > 10)
@@ -25,6 +26,7 @@ class OpenAIProvider(AIProvider):
         start_time = time.perf_counter()
 
         if not self.has_api_key():
+            self.last_call_metadata = {"status": "skipped", "error_category": "missing_key", "duration_ms": 0}
             logger.warning(
                 f"OpenAI API call skipped: OPENAI_API_KEY is not configured [provider=openai, model={self.model}, duration_ms=0, status=failure, error_category=missing_key]"
             )
@@ -53,6 +55,7 @@ class OpenAIProvider(AIProvider):
                 res.raise_for_status()
                 data = res.json()
                 duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+                self.last_call_metadata = {"status": "success", "error_category": None, "duration_ms": duration_ms}
                 logger.info(
                     f"OpenAI API call successful in {duration_ms}ms [provider=openai, model={self.model}, status=success]"
                 )
@@ -68,18 +71,21 @@ class OpenAIProvider(AIProvider):
             elif status_code >= 500:
                 error_cat = "server_error"
 
+            self.last_call_metadata = {"status": "failure", "error_category": error_cat, "duration_ms": duration_ms}
             logger.error(
                 f"OpenAI API HTTP error in {duration_ms}ms [provider=openai, model={self.model}, status=failure, error_category={error_cat}, status_code={status_code}]"
             )
             return self._fallback_response(system_prompt, user_prompt)
         except httpx.ConnectError:
             duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            self.last_call_metadata = {"status": "failure", "error_category": "network_failure", "duration_ms": duration_ms}
             logger.error(
                 f"OpenAI API network connection error in {duration_ms}ms [provider=openai, model={self.model}, status=failure, error_category=network_failure]"
             )
             return self._fallback_response(system_prompt, user_prompt)
         except Exception as e:
             duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            self.last_call_metadata = {"status": "failure", "error_category": "other_api_error", "duration_ms": duration_ms}
             logger.error(
                 f"OpenAI API unexpected failure in {duration_ms}ms [provider=openai, model={self.model}, status=failure, error_category=other_api_error, exception={type(e).__name__}]"
             )

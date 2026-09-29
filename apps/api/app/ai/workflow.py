@@ -179,6 +179,7 @@ IMPORTANT GUIDELINES:
             audit_reference=audit_id,
         )
 
+        call_meta = getattr(self.ai_provider, "last_call_metadata", {})
         return AnalyticsQueryResponse(
             question=question,
             language=language,
@@ -203,6 +204,8 @@ IMPORTANT GUIDELINES:
                 model_used=settings.OPENAI_MODEL,
                 ai_provider=settings.AI_PROVIDER,
                 branch_restricted=False,
+                ai_call_status=call_meta.get("status"),
+                error_category=call_meta.get("error_category"),
             ),
             error_message=None,
             intent=IntentType.GENERAL_CONVERSATION,
