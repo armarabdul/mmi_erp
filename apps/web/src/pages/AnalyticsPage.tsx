@@ -6,7 +6,10 @@ import {
   ShieldCheck, 
   RefreshCw, 
   X,
-  Calendar
+  Calendar,
+  PlusCircle,
+  Bot,
+  User as UserIcon,
 } from 'lucide-react';
 import type { AnalyticsQueryResponse } from '../types';
 import { apiRequest } from '../services/api';
@@ -32,28 +35,39 @@ export const AnalyticsPage: React.FC = () => {
   const { t, language } = useLanguage();
   
   const [question, setQuestion] = useState('');
+  const [conversationId, setConversationId] = useState<string>(() => 'conv_' + Math.random().toString(36).substring(2, 11));
   const [results, setResults] = useState<AnalyticsQueryResponse[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [selectedResultForModal, setSelectedResultForModal] = useState<AnalyticsQueryResponse | null>(null);
 
   const englishSuggestions = [
+    'Hello',
+    'What can you help me with?',
+    'What is an invoice?',
     'Show me sales by branch this month',
     'Show me the top 10 products by sales',
-    'Show me monthly sales for the last 12 months',
-    'What is the total sales value this month?',
-    'Which branch has the highest sales?',
+    'Which branch performed better?',
+    'What about last month?',
   ];
 
   const arabicSuggestions = [
+    'مرحبا',
+    'ما هي قدراتك؟',
+    'ما هي الفاتورة؟',
     'ما هي المبيعات حسب الفرع هذا الشهر؟',
     'أفضل 10 منتجات مبيعا',
-    'المبيعات الشهرية لآخر 12 شهرا',
-    'ما إجمالي المبيعات هذا الشهر؟',
-    'أي فرع لديه أعلى مبيعات؟',
+    'أي فرع كان أفضل؟',
+    'ماذا عن الشهر الماضي؟',
   ];
 
   const suggestions = language === 'ar' ? arabicSuggestions : englishSuggestions;
+
+  const handleStartNewChat = () => {
+    setConversationId('conv_' + Math.random().toString(36).substring(2, 11));
+    setResults([]);
+    setQuestion('');
+  };
 
   const handleQuery = async (queryText: string) => {
     if (!queryText.trim() || isProcessing) return;
@@ -61,7 +75,6 @@ export const AnalyticsPage: React.FC = () => {
     setIsProcessing(true);
     setCurrentStageIndex(0);
 
-    // Simulate real high-level workflow stage progression
     const stageTimer = setInterval(() => {
       setCurrentStageIndex((prev) => (prev < STAGES.length - 1 ? prev + 1 : prev));
     }, 280);
@@ -72,15 +85,18 @@ export const AnalyticsPage: React.FC = () => {
         body: JSON.stringify({
           question: queryText.trim(),
           language: language,
+          conversation_id: conversationId,
         }),
       });
 
       clearInterval(stageTimer);
+      if (response.conversation_id) {
+        setConversationId(response.conversation_id);
+      }
       setResults((prev) => [response, ...prev]);
       setQuestion('');
     } catch (err: any) {
       clearInterval(stageTimer);
-      // Create safe error result
       const errorResult: AnalyticsQueryResponse = {
         question: queryText.trim(),
         language: language,
@@ -107,6 +123,7 @@ export const AnalyticsPage: React.FC = () => {
           branch_restricted: false,
         },
         error_message: err.message,
+        intent: 'ERP_ANALYTICS',
       };
       setResults((prev) => [errorResult, ...prev]);
     } finally {
@@ -121,16 +138,29 @@ export const AnalyticsPage: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', maxWidth: '1100px', margin: '0 auto' }}>
-      {/* Top Description */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-        <h2 style={{ fontSize: 'var(--font-xl)', color: 'var(--color-text-primary)' }}>
-          {t('aiAnalytics')}
-        </h2>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-sm)' }}>
-          {language === 'ar'
-            ? 'اطرح أسئلة باللغة الطبيعية عن مبيعاتك، مخزونك، وأداء الفروع للحصول على تحليلات دقيقة معتمدة.'
-            : 'Ask questions about your enterprise ERP data in plain English or Arabic to generate validated charts and insights.'}
-        </p>
+      {/* Top Header with New Conversation Button */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <h2 style={{ fontSize: 'var(--font-xl)', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <Sparkles size={22} color="var(--color-accent)" />
+            {language === 'ar' ? 'مساعد الذكاء الاصطناعي وتحليلات الـ ERP' : 'AI Assistant & ERP Analytics'}
+          </h2>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-sm)' }}>
+            {language === 'ar'
+              ? 'تحدث بشكل طبيعي لطرح الأسئلة العامة أو طلب تحليلات فورية ودقيقة لبيانات الـ ERP مع تطبيق كامل لمعايير الأمان.'
+              : 'Talk naturally for general business assistance or request verified ERP sales, branch, and inventory analytics.'}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleStartNewChat}
+          className="btn btn-outline btn-sm"
+          style={{ gap: 'var(--space-1-5)' }}
+        >
+          <PlusCircle size={14} />
+          <span>{language === 'ar' ? 'محادثة جديدة' : 'New Conversation'}</span>
+        </button>
       </div>
 
       {/* Interactive Input Box */}
@@ -140,7 +170,7 @@ export const AnalyticsPage: React.FC = () => {
             <input
               type="text"
               className="input-control"
-              placeholder={t('askQuestionPlaceholder')}
+              placeholder={language === 'ar' ? 'اسأل المساعد (مثال: مرحباً، ما هي الفاتورة؟، أو مبيعات الفروع هذا الشهر)...' : 'Ask me anything (e.g. "Hello", "What is an invoice?", or "Show sales by branch this month")...'}
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               disabled={isProcessing}
@@ -180,7 +210,7 @@ export const AnalyticsPage: React.FC = () => {
           {/* Quick Suggestions Chips */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
             <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)' }}>
-              {t('suggestionsTitle')}
+              {language === 'ar' ? 'اقتراحات سريعة للمحادثة والتحليلات:' : 'Suggestions for conversation & analytics:'}
             </span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
               {suggestions.map((s, idx) => (
@@ -242,7 +272,6 @@ export const AnalyticsPage: React.FC = () => {
             </span>
           </div>
 
-          {/* Progress dots */}
           <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
             {STAGES.map((s, idx) => (
               <div
@@ -260,172 +289,274 @@ export const AnalyticsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Analytics Results List */}
+      {/* Results and Conversation History Feed */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-        {results.map((res, resIdx) => (
-          <div
-            key={resIdx}
-            className="card"
-            style={{
-              padding: 'var(--space-5)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-4)',
-              borderLeft: res.success ? '4px solid var(--color-primary)' : '4px solid var(--color-danger)',
-            }}
-          >
-            {/* Header: User Question + Status Badge */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <div
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--color-primary-light)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Sparkles size={14} color="var(--color-primary)" />
-                </div>
-                <div>
+        {results.map((res, resIdx) => {
+          const isGeneral = res.intent === 'GENERAL_CONVERSATION' || (res.visualization?.chart_type === 'none' && res.table_data?.length === 0);
+
+          if (isGeneral) {
+            // General Conversational Card
+            return (
+              <div
+                key={resIdx}
+                className="card"
+                style={{
+                  padding: 'var(--space-5)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-3)',
+                  borderLeft: '4px solid var(--color-accent)',
+                  backgroundColor: 'var(--color-bg-surface)',
+                }}
+              >
+                {/* User Message */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2-5)' }}>
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--color-bg-subtle)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--color-text-secondary)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <UserIcon size={15} />
+                  </div>
                   <div style={{ fontSize: 'var(--font-md)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
                     "{res.question}"
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                    {res.data_source} &bull; {res.technical_details.execution_time_ms}ms
+                </div>
+
+                {/* AI Assistant Bubble */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--color-bg-subtle)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: 'var(--space-4)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--space-2)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1-5)', color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--font-xs)' }}>
+                      <Bot size={15} />
+                      <span>{language === 'ar' ? 'المساعد الذكي' : 'AI Assistant'}</span>
+                    </div>
+                    <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
+                      {language === 'ar' ? 'حوار عام' : 'General AI'}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-primary)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                    {res.explanation}
                   </div>
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                {res.technical_details.branch_restricted && (
-                  <span className="badge badge-warning">
-                    <ShieldCheck size={11} /> Branch Scoped
+                {/* Footer */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                  <span>{res.data_source}</span>
+                  <span>{res.technical_details?.execution_time_ms || 0}ms</span>
+                </div>
+              </div>
+            );
+          }
+
+          // Full ERP Analytics Card
+          return (
+            <div
+              key={resIdx}
+              className="card"
+              style={{
+                padding: 'var(--space-5)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-4)',
+                borderLeft: res.success ? '4px solid var(--color-primary)' : '4px solid var(--color-danger)',
+              }}
+            >
+              {/* Header: User Question + Status Badge */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'var(--color-primary-light)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Sparkles size={14} color="var(--color-primary)" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 'var(--font-md)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                      "{res.question}"
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                      {res.data_source} &bull; {res.technical_details.execution_time_ms}ms
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  {res.technical_details.branch_restricted && (
+                    <span className="badge badge-warning">
+                      <ShieldCheck size={11} /> Branch Scoped
+                    </span>
+                  )}
+                  <span className={`badge ${res.success ? 'badge-success' : 'badge-danger'}`}>
+                    {res.success ? 'Validated' : 'Security Alert'}
                   </span>
-                )}
-                <span className={`badge ${res.success ? 'badge-success' : 'badge-danger'}`}>
-                  {res.success ? 'Validated' : 'Security Alert'}
-                </span>
+                </div>
               </div>
-            </div>
 
-            {/* Applied Date Filter & Applied Branch Permissions (Phase 3 Requirement) */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', fontSize: 'var(--font-xs)' }}>
-              {res.filters_applied && Object.keys(res.filters_applied).length > 0 && (
+              {/* Applied Filters & Branch Scope */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', fontSize: 'var(--font-xs)' }}>
+                {res.filters_applied && Object.keys(res.filters_applied).length > 0 && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--color-bg-subtle)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+                    <Calendar size={12} color="var(--color-text-muted)" />
+                    <span style={{ color: 'var(--color-text-muted)' }}>{language === 'ar' ? 'الفترة المطبقة:' : 'Applied Date Filter:'}</span>
+                    <span style={{ fontWeight: 600 }}>{JSON.stringify(res.filters_applied).replace(/["{}]/g, '').replace(':', ': ')}</span>
+                  </div>
+                )}
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--color-bg-subtle)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-                  <Calendar size={12} color="var(--color-text-muted)" />
-                  <span style={{ color: 'var(--color-text-muted)' }}>{language === 'ar' ? 'الفترة المطبقة:' : 'Applied Date Filter:'}</span>
-                  <span style={{ fontWeight: 600 }}>{JSON.stringify(res.filters_applied).replace(/["{}]/g, '').replace(':', ': ')}</span>
+                  <ShieldCheck size={12} color={res.technical_details.branch_restricted ? 'var(--color-accent)' : 'var(--color-text-muted)'} />
+                  <span style={{ color: 'var(--color-text-muted)' }}>{language === 'ar' ? 'نطاق الصلاحيات:' : 'Branch Permission:'}</span>
+                  <span style={{ fontWeight: 600 }}>
+                    {res.technical_details.branch_restricted 
+                      ? (language === 'ar' ? 'مقيد للفرع المخصص فقط' : 'Restricted (Assigned Branch Only)')
+                      : (language === 'ar' ? 'شامل لكافة الفروع' : 'Global (All Branches)')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Executive Business Summary */}
+              <div
+                style={{
+                  backgroundColor: res.success ? 'var(--color-bg-subtle)' : 'var(--color-danger-bg)',
+                  border: `1px solid ${res.success ? 'var(--color-border)' : 'var(--color-danger-border)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  padding: 'var(--space-3) var(--space-4)',
+                  fontSize: 'var(--font-sm)',
+                  color: res.success ? 'var(--color-text-primary)' : 'var(--color-danger)',
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>{language === 'ar' ? 'الملخص التنفيذي: ' : 'Executive Summary: '}</strong>
+                {res.explanation}
+              </div>
+
+              {/* Visualization Chart */}
+              {res.success && res.visualization.data && res.visualization.data.length > 0 && (
+                <div style={{ marginTop: 'var(--space-2)' }}>
+                  <EChartComponent
+                    height={320}
+                    metadata={res.visualization}
+                  />
                 </div>
               )}
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--color-bg-subtle)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-                <ShieldCheck size={12} color={res.technical_details.branch_restricted ? 'var(--color-accent)' : 'var(--color-text-muted)'} />
-                <span style={{ color: 'var(--color-text-muted)' }}>{language === 'ar' ? 'نطاق الصلاحيات:' : 'Branch Permission:'}</span>
-                <span style={{ fontWeight: 600 }}>
-                  {res.technical_details.branch_restricted 
-                    ? (language === 'ar' ? 'مقيد للفرع المخصص فقط' : 'Restricted (Assigned Branch Only)')
-                    : (language === 'ar' ? 'شامل لكافة الفروع' : 'Global (All Branches)')}
-                </span>
-              </div>
-            </div>
 
-            {/* Business Explanation */}
-            <div
-              style={{
-                backgroundColor: res.success ? 'var(--color-bg-subtle)' : 'var(--color-danger-bg)',
-                border: `1px solid ${res.success ? 'var(--color-border)' : 'var(--color-danger-border)'}`,
-                borderRadius: 'var(--radius-md)',
-                padding: 'var(--space-3) var(--space-4)',
-                fontSize: 'var(--font-sm)',
-                color: res.success ? 'var(--color-text-primary)' : 'var(--color-danger)',
-                lineHeight: 1.5,
-              }}
-            >
-              <strong>{language === 'ar' ? 'الملخص التنفيذي: ' : 'Executive Summary: '}</strong>
-              {res.explanation}
-            </div>
-
-            {/* Visualization (if success and data available) */}
-            {res.success && res.visualization.data && res.visualization.data.length > 0 && (
-              <div style={{ marginTop: 'var(--space-2)' }}>
-                <EChartComponent
-                  height={320}
-                  metadata={res.visualization}
-                />
-              </div>
-            )}
-
-            {/* Data Table */}
-            {res.success && res.table_data && res.table_data.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
-                    {language === 'ar' ? 'جدول البيانات التحليلية' : 'Underlying Query Records'} ({res.table_data.length} rows)
-                  </span>
-                </div>
-                <div className="table-container" style={{ maxHeight: '240px' }}>
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        {res.table_columns.map((col) => (
-                          <th key={col}>{col.replace('_', ' ').toUpperCase()}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {res.table_data.slice(0, 15).map((row, rIdx) => (
-                        <tr key={rIdx}>
-                          {res.table_columns.map((col) => {
-                            const val = row[col];
-                            const isNumeric = typeof val === 'number';
-                            return (
-                              <td key={col} className={isNumeric ? 'num-cell' : ''}>
-                                {isNumeric ? val.toLocaleString() : String(val)}
-                              </td>
-                            );
-                          })}
+              {/* Data Table */}
+              {res.success && res.table_data && res.table_data.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                      {language === 'ar' ? 'جدول البيانات التحليلية' : 'Underlying Query Records'} ({res.table_data.length} rows)
+                    </span>
+                  </div>
+                  <div className="table-container" style={{ maxHeight: '240px' }}>
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          {res.table_columns.map((col) => (
+                            <th key={col}>{col.replace('_', ' ').toUpperCase()}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {res.table_data.slice(0, 15).map((row, rIdx) => (
+                          <tr key={rIdx}>
+                            {res.table_columns.map((col) => {
+                              const val = row[col];
+                              const isNumeric = typeof val === 'number';
+                              return (
+                                <td key={col} className={isNumeric ? 'num-cell' : ''}>
+                                  {isNumeric ? val.toLocaleString() : String(val)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Footer with Technical Inspection Modal Button */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingTop: 'var(--space-3)',
-                borderTop: '1px solid var(--color-border)',
-                fontSize: 'var(--font-xs)',
-                color: 'var(--color-text-muted)',
-              }}
-            >
-              <div>
-                Audit Ref: <strong>#{res.technical_details.audit_id || 'DEMO'}</strong>
-              </div>
+              {/* Follow-up Prompts Pills */}
+              {res.success && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', paddingTop: 'var(--space-2)' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                    {language === 'ar' ? 'أسئلة متابعة مقترحة:' : 'Suggested follow-up:'}
+                  </span>
+                  {[
+                    language === 'ar' ? 'أي فرع كان أفضل؟' : 'Which branch performed better?',
+                    language === 'ar' ? 'ماذا عن الشهر الماضي؟' : 'What about last month?',
+                    language === 'ar' ? 'اشرح هذه الأرقام' : 'Explain those numbers'
+                  ].map((fu, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleQuery(fu)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: '11px', padding: '2px 8px', borderRadius: 'var(--radius-full)', border: '1px dashed var(--color-border)' }}
+                    >
+                      {fu}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => setSelectedResultForModal(res)}
-                style={{ gap: 'var(--space-1-5)' }}
+              {/* Footer with Technical Inspection Modal Button */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingTop: 'var(--space-3)',
+                  borderTop: '1px solid var(--color-border)',
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--color-text-muted)',
+                }}
               >
-                <Code size={13} />
-                <span>{t('queryDetails')}</span>
-              </button>
+                <div>
+                  Audit Ref: <strong>#{res.technical_details.audit_id || 'DEMO'}</strong>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setSelectedResultForModal(res)}
+                  style={{ gap: 'var(--space-1-5)' }}
+                >
+                  <Code size={13} />
+                  <span>{t('queryDetails')}</span>
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Technical Details Inspection Modal (Section 19) */}
+      {/* Technical Details Inspection Modal */}
       {selectedResultForModal && (
         <div className="drawer-backdrop" onClick={() => setSelectedResultForModal(null)}>
           <div

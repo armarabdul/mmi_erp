@@ -43,21 +43,23 @@ class FastPathAnalyzer:
 
         # Scenario 1 & 2: Sales by branch this month / المبيعات حسب الفرع هذا الشهر
         is_branch_sales = (
-            ("sales by branch" in q or "branch sales" in q or "sales per branch" in q or "by branch" in q) or
-            ("المبيعات حسب الفرع" in q or "مبيعات الفروع" in q or "حسب الفرع" in q or "لكل فرع" in q)
+            ("sales by branch" in q or "branch sales" in q or "sales per branch" in q or "by branch" in q or ("sales" in q and "branch" in q)) or
+            ("المبيعات حسب الفرع" in q or "مبيعات الفروع" in q or "حسب الفرع" in q or "لكل فرع" in q or ("مبيعات" in q and "فرع" in q))
         )
         is_this_month = (
             ("this month" in q or "current month" in q or "september" in q) or
             ("هذا الشهر" in q or "الشهر الحالي" in q or "سبتمبر" in q)
         )
 
-        # Highest sales branch
+        # Highest sales branch / Which branch performed better?
         is_highest_branch = (
             ("highest sales" in q and "branch" in q) or
             ("top branch" in q or "best branch" in q or "best performing branch" in q) or
+            ("performed better" in q or "performed best" in q or "which branch performed better" in q) or
             ("أعلى مبيعات" in q and "فرع" in q) or
             ("اعلى مبيعات" in q and "فرع" in q) or
-            ("أفضل فرع" in q or "افضل فرع" in q)
+            ("أفضل فرع" in q or "افضل فرع" in q) or
+            ("أي فرع كان أفضل" in q or "اي فرع كان افضل" in q or "أي فرع أفضل" in q)
         )
         if is_highest_branch:
             sql = """SELECT b.name AS branch, 
@@ -85,8 +87,8 @@ LIMIT 1"""
 
         # Total sales value this month
         is_total_month_sales = (
-            (("total sales" in q or "sales value" in q) and ("this month" in q or "current month" in q or "september" in q)) or
-            ("إجمالي المبيعات هذا الشهر" in q or "اجمالي المبيعات هذا الشهر" in q or "مبيعات الشهر الحالي" in q)
+            (("total sales" in q or "sales value" in q or ("sales" in q and "month" in q and not is_branch_sales)) and ("this month" in q or "current month" in q or "september" in q)) or
+            ("إجمالي المبيعات هذا الشهر" in q or "اجمالي المبيعات هذا الشهر" in q or "مبيعات الشهر الحالي" in q or "المبيعات هذا الشهر" in q)
         )
         if is_total_month_sales:
             sql = """SELECT 'September 2026' AS period,
@@ -108,14 +110,26 @@ WHERE s.status = 'Completed' AND s.sale_date >= '2026-09-01' AND s.sale_date <= 
                 y_axis_key="total_sales",
             )
 
+        is_last_month = (
+            ("last month" in q or "previous month" in q or "august" in q) or
+            ("الشهر الماضي" in q or "الشهر السابق" in q or "أغسطس" in q)
+        )
+
         if is_branch_sales:
             date_where = "WHERE s.status = 'Completed'"
             title = "Sales by Branch"
             title_ar = "المبيعات حسب الفرع"
+            date_filter = None
             if is_this_month:
                 date_where += " AND s.sale_date >= '2026-09-01' AND s.sale_date <= '2026-09-30'"
                 title = "Sales by Branch — September 2026"
                 title_ar = "المبيعات حسب الفرع — سبتمبر 2026"
+                date_filter = "2026-09"
+            elif is_last_month:
+                date_where += " AND s.sale_date >= '2026-08-01' AND s.sale_date <= '2026-08-31'"
+                title = "Sales by Branch — August 2026"
+                title_ar = "المبيعات حسب الفرع — أغسطس 2026"
+                date_filter = "2026-08"
 
             sql = f"""SELECT b.name AS branch, 
        ROUND(CAST(SUM(s.net_amount) AS NUMERIC), 2) AS total_sales,
@@ -130,7 +144,7 @@ ORDER BY total_sales DESC"""
                 intent="kpi_sales_by_branch",
                 kpi="total_sales",
                 dimension="branch",
-                date_filter="2026-09" if is_this_month else None,
+                date_filter=date_filter,
                 limit=10,
                 generated_sql=sql,
                 chart_type="bar",

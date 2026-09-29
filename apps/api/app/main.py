@@ -4,8 +4,11 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.database import Base, engine
+import app.models  # ensure all models are imported
 from app.api.v1.health import router as health_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.dashboard import router as dashboard_router
@@ -13,12 +16,23 @@ from app.api.v1.analytics import router as analytics_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.audit import router as audit_router
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Ensures production database schema matches Alembic migration state safely."""
+    try:
+        from app.core.migration import run_safe_migration
+        run_safe_migration()
+    except Exception as e:
+        logger.error(f"Safe migration verification on startup encountered an error: {e}", exc_info=True)
+    yield
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="MMI AI Analytics — Intelligent ERP Analytics & Reporting",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
+    lifespan=lifespan,
 )
 
 # CORS Middleware (Section 26 & 37)

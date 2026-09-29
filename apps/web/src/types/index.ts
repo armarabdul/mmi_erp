@@ -69,7 +69,7 @@ export interface DashboardData {
 }
 
 export interface ChartMetadata {
-  chart_type: 'bar' | 'line' | 'pie' | 'donut' | 'area' | 'table' | 'kpi';
+  chart_type: 'bar' | 'line' | 'pie' | 'donut' | 'area' | 'table' | 'kpi' | 'none';
   title: string;
   subtitle?: string | null;
   x_axis_key?: string | null;
@@ -100,6 +100,8 @@ export interface AnalyticsQueryResponse {
   data_source: string;
   technical_details: TechnicalDetails;
   error_message?: string | null;
+  intent?: 'GENERAL_CONVERSATION' | 'ERP_ANALYTICS' | 'CONTEXTUAL' | string;
+  conversation_id?: string | null;
 }
 
 export interface ReportDefinition {
